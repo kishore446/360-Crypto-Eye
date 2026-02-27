@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: crypto_eye
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      appnet:
+        aliases: [db]
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      appnet:
+        aliases: [redis]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    command: uvicorn services.api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ../../.env
+    depends_on: [db, redis]
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../..:/app
+    networks: [appnet]
+
+  publisher:
+    build:
+      context: ../..
+      dockerfile: services/publisher/Dockerfile
+    command: python -m services.publisher.main
+    env_file:
+      - ../../.env
+    depends_on: [db, redis]
+    volumes:
+      - ../..:/app
+    networks: [appnet]
+
+  ops-bot:
+    build:
+      context: ../..
+      dockerfile: services/ops_bot/Dockerfile
+    command: python -m services.ops_bot.main
+    env_file:
+      - ../../.env
+    depends_on: [db, redis]
+    volumes:
+      - ../..:/app
+    networks: [appnet]
+
+volumes:
+  pgdata:
+
+networks:
+  appnet:
+    name: crypto-eye-net
+    driver: bridge
